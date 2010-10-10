@@ -5,6 +5,11 @@ module ValidatesTimeliness
       # You need define the fields before you define the validations.
       # It is best to use the plugin parser to avoid errors on a bad
       # field value in Mongoid. Parser will return nil rather than error.
+      #
+
+      included do
+        alias_method_chain :instantiate_object, :timeliness
+      end
 
       module ClassMethods 
         # Mongoid has no bulk attribute method definition hook. It defines
@@ -36,6 +41,24 @@ module ValidatesTimeliness
             DateTime => :datetime
           }[fields[attr_name.to_s].type] || :datetime
         end
+      end
+
+
+      module InstanceMethods
+
+        def instantiate_object_with_timeliness(klass, values_with_empty_parameters)
+          if klass == DateTime || klass == Date || klass == Time
+            begin
+              Date.send(:convert_to_time,  values_with_empty_parameters[0..2]) # must be valid date
+              klass.send(:convert_to_time, values_with_empty_parameters) if klass != Date # and a valid time
+            rescue => e
+              #TODO: write attribute as string _before_ typecasting
+              return nil
+            end
+          end
+          instantiate_object_without_timeliness(klass, values_with_empty_parameters)
+        end
+
       end
 
     end
